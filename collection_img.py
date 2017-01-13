@@ -3,6 +3,7 @@
 
 import os
 import time
+from weibo import APIError
 from mweibo import Weibo
 from config import APP_KEY, APP_SECRET, IMG_PATH, TIME_FILE, UPDATE_SNAP
 from antool import GetFromFile
@@ -15,27 +16,31 @@ class ImgFile(object):
         self.name, self.type_ = self.get_name_type()
         self.img_path = img_path
         self.path = self.get_path()
-        self.mdif_time = self.get_modi_time()
+        # print (self.name, self.type_, self.fullname, self.path)
+        self.st_mtime = self.get_st_mtime()
 
-    def get_modi_time(self):
+    def get_st_mtime(self):
         return os.stat(self.path).st_mtime
 
     def get_path(self):
         if self.img_path.endswith('/'):
-            return self.img_path + self.name
+            return self.img_path + self.fullname
         else:
-            return self.img_path + '/' + self.name
+            return self.img_path + '/' + self.fullname
 
     def get_name_type(self):
+        #TODO replace with re
         if self.fullname.endswith('.jpg'):
             ftype = '.jpg'
-        if self.fullname.endswith('.png'):
+        elif self.fullname.endswith('.png'):
             ftype = '.png'
-        name = self.fullname.split(ftype)[-1]
+        else:
+            ftype = '.xxx'
+        name = self.fullname.replace(ftype, '')
         return name, ftype
 
     def should_push(self):
-        if self.type_ == ('shaye'):
+        if self.name.endswith('shaye'):
             return True
         return False
 
@@ -47,23 +52,23 @@ class ImgFile(object):
 
 
 class ShayeScreen(object):
-    def __init__(self, app_key, app_secret, img_path, time_file):
-        self._imgpath = img_path
+    def __init__(self, app_key, app_secret, img_path, time_file, update_snap=60*10):
+        self.snap = update_snap
         self.weibo = Weibo(app_key, app_secret)
-        self.weibo.login()
+        self.img_path = img_path
         self.logtime = GetFromFile(time_file)
-        self.lastime = None
+        self.lastime = float(self.logtime.read())
 
     def time_snap(self):
         if not self.lastime:
             self.lastime = time.time()
         now = time.time()
-        if now - self.lastime > UPDATE_SNAP:
-            return True
-        return False
+        snap = now - self.lastime
+
+        return 0 if snap > UPDATE_SNAP else UPDATE_SNAP - snap
 
     def get_new_file(self):
-        new_imfos = {}
+        new_imfos = []
         files = os.listdir(self.img_path)
         #TODO delete pisc a month ago: def delete_a_month(self):
         # fileinfos = [(name, os.stat(self._imgpath+'/'+name).st_mtime) for name in files]
@@ -71,7 +76,9 @@ class ShayeScreen(object):
         for ifile in ifs:
             if not ifile.should_push():
                 continue
-            if ifile.mtime > self.lastime:
+            if ifile.st_mtime > self.lastime:
+                print ('here', ifile.name)
+                print('st_mtime', time.localtime(ifile.st_mtime))
                 finfo = {}
                 finfo['path'] = ifile.path
                 finfo['status'] = ifile.get_status()
@@ -81,28 +88,37 @@ class ShayeScreen(object):
     def collection(self):
         while 1:
             imfos = self.get_new_file()
+            print('find new img {0}'.format(len(imfos)))
             if imfos:
                 return imfos
-            snap = self.time_snap()
-            time.sleep(snap)
+            # snap = self.time_snap()
+            print('need to snap {0}'.format(self.snap))
+            time.sleep(self.snap)
 
-    def send_weibo(self, imfos):
-        for imfo in imfos:
-            path = imfo['path']
-            status = imfo['status']
+    def send_weibo(self, imfo):
+        path = imfo['path']
+        status = imfo['status']
+        try:
             self.weibo.send(pic_path=path, status=status)
+            print('file {0} send success!'.format(path))
+        except APIError as e:
+            print(e)
 
     def start(self):
         while 1:
             imfos = self.collection()
-            self.send_weibo(imfos)
-            self.logtime.write(time.time())
-            self.lastime = time.time()
+            for imfo in imfos:
+                self.send_weibo(imfo)
+                self.logtime.write(str(time.time()))
+                print('logtime done')
+                self.lastime = time.time()
+                print('take a 10s snap')
+                time.sleep(10)
 
 
 def main():
-    print ('img_path {0}'.format(IMG_PATH))
-    shaye = ShayeScreen(APP_KEY, APP_SECRET, IMG_PATH, TIME_FILE)
+    print('img_path {0}'.format(IMG_PATH))
+    shaye = ShayeScreen(APP_KEY, APP_SECRET, IMG_PATH, TIME_FILE, update_snap=UPDATE_SNAP)
     shaye.start()
 
 
