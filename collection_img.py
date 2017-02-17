@@ -5,7 +5,7 @@ import os
 import time
 from weibo import APIError
 from mweibo import Weibo
-from config import APP_KEY, APP_SECRET, IMG_PATH, TIME_FILE, UPDATE_SNAP
+from config import APP_KEY, APP_SECRET, CODE, IMG_PATH, TIME_FILE, UPDATE_SNAP
 from antool import GetFromFile
 import re
 
@@ -48,13 +48,13 @@ class ImgFile(object):
         try:
             return re.search('\((.*?)\)', self.name).groups()[0]
         except AttributeError:
-            return None
+            return '沙叶截屏分享'
 
 
 class ShayeScreen(object):
-    def __init__(self, app_key, app_secret, img_path, time_file, update_snap=60*10):
+    def __init__(self, app_key, app_secret, usr_code, img_path, time_file, update_snap=60*10):
         self.snap = update_snap
-        self.weibo = Weibo(app_key, app_secret)
+        self.weibo = Weibo(app_key, app_secret, usr_code)
         self.img_path = img_path
         self.logtime = GetFromFile(time_file)
         self.lastime = float(self.logtime.read())
@@ -118,7 +118,7 @@ class ShayeScreen(object):
 
 def main():
     print('img_path {0}'.format(IMG_PATH))
-    shaye = ShayeScreen(APP_KEY, APP_SECRET, IMG_PATH, TIME_FILE, update_snap=UPDATE_SNAP)
+    shaye = ShayeScreen(APP_KEY, APP_SECRET, CODE,  IMG_PATH, TIME_FILE, update_snap=UPDATE_SNAP)
     shaye.start()
 
 

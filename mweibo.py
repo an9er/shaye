@@ -4,15 +4,18 @@
 
 from weibo import APIClient
 from antool import GetFromFile
+from config import APP_KEY, APP_SECRET, CODE
+
 # import requests
 
 
 class Weibo(object):
-    def __init__(self, app_key, app_secret, session_file='.session'):
+    def __init__(self, app_key, app_secret, code, session_file='.session'):
         self._session_file = GetFromFile(session_file)
         self.client = None
         self.app_key = app_key
         self.app_secret = app_secret
+        self.code = code # need to get code
         self.login()
 
     def get_session(self):
@@ -29,9 +32,9 @@ class Weibo(object):
             # print('aurl', aurl)
             # #TODO code is modified
             # rsp = requests.get(aurl)
-            self.code = '' # need to get code
             rs = self.client.request_access_token(self.code)
             self.save_session(rs)
+            session = self.get_session()
         try:
             self.client.set_access_token(session['access_token'], session['expires_in'])
         except Exception as e:
@@ -47,9 +50,8 @@ class Weibo(object):
 
 
 def main():
-    from config import APP_KEY, APP_SECRET
-    weibo = Weibo(APP_KEY, APP_SECRET)
-    weibo.send(pic_path='/home/soso/Pictures/Selection_036(auto send by shaye ~)_shaye.png', status='test shaye~')
+    mweibo = Weibo(APP_KEY, APP_SECRET, CODE)
+    mweibo.send(pic_path='/home/soso/Pictures/Selection_036(auto send by shaye ~)_shaye.png', status='test shaye~')
 
 
 if __name__ == '__main__':
